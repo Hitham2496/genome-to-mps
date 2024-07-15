@@ -1,0 +1,2 @@
+numpy==1.21.0
+tensornetwork=0.4.6
