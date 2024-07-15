@@ -9,5 +9,5 @@ python packages.
 To install the dependencies, run:
 
 ```bash
-pip3 install requirements.txt
+pip3 install -r requirements.txt
 ```
