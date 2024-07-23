@@ -38,23 +38,35 @@ def nuc_tensor(base, bond_dim, left=False, right=False, name="node"):
     # Edge dimesnions:
     # - has dimension `bond_dim`
     # | has dimension 2, the number of qubits needed for the alphabet {A,T,C,G}
-    tensor = np.zeros((2, bond_dim)) if left else (np.zeros((bond_dim, 2)) if right else np.zeros((bond_dim, 2, bond_dim)))
+    tensor = np.zeros((2, bond_dim), dtype=complex) if left else (np.zeros((bond_dim, 2), dtype=complex) if right else np.zeros((bond_dim, 2, bond_dim), dtype=complex))
 
-    # Map nucleotides to their positions for a unique map
-    base_map = {'A': [0,0], 'C': [0,1], 'G': [1,0], 'T': [1,1]}
+    # Map nucleotides to Pauli matrices for a unique map
+    I = np.array([[1, 0], [0, 1]], dtype=complex)
+    sigma_x = np.array([[0, 1], [1, 0]], dtype=complex)
+    sigma_y = np.array([[0, -1j], [1j, 0]], dtype=complex)
+    sigma_z = np.array([[1, 0], [0, -1]], dtype=complex)
+    base_map = {'A': I, 'C': sigma_x, 'G': sigma_y, 'T': sigma_z}
     pos = base_map[base]
+
+    # Repeat the identity matrix as many times as needed for padding
+    I_repeated = np.tile(I, (1, bond_dim // 2 - 1)) 
+
     
     # Set the appropriate position depending on node location
     # Logic: Generalise a unique encoding for each dimension of bond_dim
-    #        such that the 2x2 structure is propagated
-    for idx in range(bond_dim):
-        if left:
-            tensor[:, idx] = pos
-        elif right:
-            tensor[idx, :] = pos
-        else:
-            tensor[idx, :, idx] = pos
-    
+    if left:
+        tensor = np.hstack((pos, I_repeated))       
+    elif right:
+        tensor = np.vstack((pos, np.transpose(I_repeated)))
+    else:
+        tensor[0] = np.hstack((pos, I_repeated))       
+        for i in range(1, bond_dim):
+            tensor[i] = np.roll(tensor[0], i, axis=1)
+            #if i < bond_dim - 1:
+            #    tensor[i, :, i:i+2] = I if i != bond_dim // 2 else pos
+            #else:
+            #    tensor[i, :, i-1:i+1] = I
+
     return tn.Node(tensor, name = name)
 
 def mps_from_seq(seq, bond_dim):
@@ -100,13 +112,16 @@ def main():
     """
     # Create tensors for the nucleotide sequence
     sequence = 'ACTAGTCGGT'
-    bond_dimension = 2
+    bond_dimension = 4
     mps, edges = mps_from_seq(sequence, bond_dimension)
 
     for idx, node in enumerate(mps):
         print(node.tensor)
         if idx < len(edges):
             print(edges[idx])
+
+    for x in edges:
+        tn.contract(x)
 
 ###################################################################
 if __name__ == """__main__""":
